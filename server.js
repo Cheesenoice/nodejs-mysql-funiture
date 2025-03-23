@@ -1,9 +1,20 @@
 const express = require("express");
 const session = require("express-session");
+const cors = require("cors"); // Thêm cors
 const sequelize = require("./src/config/db");
 const setupRoutes = require("./src/routes");
+require("dotenv").config();
 
 const app = express();
+
+// Cấu hình CORS
+app.use(
+  cors({
+    origin: "http://localhost:5173", // Thay bằng domain frontend của bạn
+    credentials: true, // Cho phép gửi cookie/session
+  })
+);
+
 app.use(express.json());
 app.use(
   session({

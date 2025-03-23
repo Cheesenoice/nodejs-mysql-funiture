@@ -5,10 +5,33 @@ const Product = require("../models/Product");
 const getCart = async (userId, sessionId) => {
   const cart = await Cart.findOne({
     where: userId ? { user_id: userId } : { session_id: sessionId },
-    include: [{ model: CartItem, include: [Product] }],
+    attributes: ["cart_id", "session_id", "created_at"],
+    include: [
+      {
+        model: CartItem,
+        attributes: ["cart_item_id", "product_id", "quantity"],
+        include: [
+          {
+            model: Product,
+            attributes: ["product_id", "name", "price", "image1"],
+          },
+        ],
+      },
+    ],
   });
-  if (!cart) return null;
-  return cart;
+  if (!cart) return { items: [], total_quantity: 0 };
+
+  const totalQuantity = cart.CartItems.reduce(
+    (sum, item) => sum + item.quantity,
+    0
+  );
+  return {
+    cart_id: cart.cart_id,
+    session_id: cart.session_id,
+    created_at: cart.created_at,
+    items: cart.CartItems,
+    total_quantity: totalQuantity,
+  };
 };
 
 const addToCart = async (userId, sessionId, productId, quantity) => {

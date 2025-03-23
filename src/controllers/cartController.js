@@ -3,7 +3,7 @@ const cartService = require("../services/cartService");
 const getCart = async (req, res) => {
   try {
     const cart = await cartService.getCart(req.user?.id, req.sessionID);
-    res.json({ success: true, data: cart || { items: [] } });
+    res.json({ success: true, data: cart });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
