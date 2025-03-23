@@ -62,7 +62,6 @@ const createOrderFromCart = async (
   await CartItem.destroy({ where: { cart_id: cart.cart_id } });
   await cart.destroy();
 
-  // Gửi email xác nhận
   const itemsWithProduct = await OrderItem.findAll({
     where: { order_id: order.order_id },
     include: [{ model: Product, attributes: ["name", "price"] }],
@@ -70,12 +69,12 @@ const createOrderFromCart = async (
   await sendOrderConfirmation(email, order, itemsWithProduct);
 
   if (order.payment_method === "momo") {
-    const ngrokUrl = "https://26b8-42-115-224-11.ngrok-free.app";
+    const callbackUrl = process.env.CALLBACK_URL; // Sử dụng biến từ .env
     const payUrl = await momoPayment(
       orderId,
       totalAmount.toString(),
-      `${ngrokUrl}/api/orders/callback`,
-      `${ngrokUrl}/api/orders/callback`
+      `${callbackUrl}/api/orders/callback`,
+      `${callbackUrl}/api/orders/callback`
     );
     return { order, payUrl };
   }
@@ -143,4 +142,49 @@ const getOrderById = async (userId, orderId) => {
   return order;
 };
 
-module.exports = { createOrderFromCart, getOrders, getOrderById };
+const getAllOrders = async () => {
+  return await Order.findAll({
+    include: [
+      {
+        model: OrderItem,
+        attributes: ["order_item_id", "product_id", "quantity", "price"],
+      },
+    ],
+    attributes: [
+      "order_id",
+      "full_name",
+      "email",
+      "phone",
+      "address",
+      "total_amount",
+      "status",
+      "payment_method",
+      "payment_status",
+      "created_at",
+    ],
+  });
+};
+
+const updateOrder = async (orderId, data) => {
+  const order = await Order.findByPk(orderId);
+  if (!order) throw new Error("Order not found");
+  await order.update(data);
+  return order;
+};
+
+const deleteOrder = async (orderId) => {
+  const order = await Order.findByPk(orderId);
+  if (!order) throw new Error("Order not found");
+  await OrderItem.destroy({ where: { order_id: orderId } });
+  await order.destroy();
+  return "Order deleted";
+};
+
+module.exports = {
+  createOrderFromCart,
+  getOrders,
+  getOrderById,
+  getAllOrders,
+  updateOrder,
+  deleteOrder,
+};
