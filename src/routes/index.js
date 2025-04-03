@@ -4,9 +4,9 @@ const cartRoutes = require("./cartRoutes");
 const orderRoutes = require("./orderRoutes");
 const categoryRoutes = require("./categoryRoutes");
 const productRoutes = require("./productRoutes");
-const adminCategoryRoutes = require("./admin/categoryRoutes");
-const adminProductRoutes = require("./admin/productRoutes");
-const adminOrderRoutes = require("./admin/orderRoutes");
+const adminCategoryRoutes = require("./admin/adminCategoryRoutes");
+const adminProductRoutes = require("./admin/adminProductRoutes");
+const adminOrderRoutes = require("./admin/adminOrderRoutes");
 
 module.exports = (app) => {
   app.use("/api/auth", authRoutes);

@@ -1,26 +1,32 @@
 const express = require("express");
 const router = express.Router();
-const categoryController = require("../../controllers/admin/categoryController");
+const adminOrderController = require("../../controllers/admin/adminOrderController");
 const authMiddleware = require("../../middleware/auth");
 const adminMiddleware = require("../../middleware/admin");
 
-router.post(
+router.get(
   "/",
   authMiddleware,
   adminMiddleware,
-  categoryController.createCategory
+  adminOrderController.getAllOrders
+);
+router.get(
+  "/:id",
+  authMiddleware,
+  adminMiddleware,
+  adminOrderController.getOrderById
 );
 router.patch(
   "/:id",
   authMiddleware,
   adminMiddleware,
-  categoryController.updateCategory
+  adminOrderController.updateOrder
 );
 router.delete(
   "/:id",
   authMiddleware,
   adminMiddleware,
-  categoryController.deleteCategory
+  adminOrderController.deleteOrder
 );
 
 module.exports = router;

@@ -1,18 +1,19 @@
 const jwt = require("jsonwebtoken");
 
 const authMiddleware = (req, res, next) => {
-  const token = req.headers["authorization"]?.split(" ")[1];
-  if (!token)
-    return res
-      .status(401)
-      .json({ success: false, message: "No token provided" });
+  const token = req.header("Authorization")?.replace("Bearer ", "");
+  if (!token) {
+    req.user = null; // Khách vãng lai
+    return next();
+  }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err)
-      return res.status(403).json({ success: false, message: "Invalid token" });
-    req.user = user;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = { id: decoded.id }; // Lấy id thay vì userId
     next();
-  });
+  } catch (error) {
+    res.status(401).json({ success: false, message: "Invalid token" });
+  }
 };
 
 module.exports = authMiddleware;

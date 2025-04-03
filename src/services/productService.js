@@ -34,13 +34,19 @@ const createProduct = async (data, files) => {
     brand,
   };
   images.forEach((img, index) => {
-    productData[`image${index + 1}`] = img.url;
+    productData[`image${index}`] = img.url; // Đổi thành image0 đến image5
   });
 
   return await Product.create(productData);
 };
 
-const getProducts = async ({ category_id, page = 1, limit = 10 }) => {
+const getProducts = async ({
+  category_id,
+  is_featured,
+  is_new,
+  page = 1,
+  limit = 10,
+}) => {
   const offset = (page - 1) * limit;
   let categoryIds = [];
 
@@ -56,11 +62,23 @@ const getProducts = async ({ category_id, page = 1, limit = 10 }) => {
     categoryIds = await getSubCategories(parseInt(category_id));
   }
 
-  const where = category_id ? { category_id: categoryIds } : {};
+  const where = {};
+  if (category_id) where.category_id = categoryIds;
+  if (is_featured !== undefined) where.is_featured = is_featured === "true";
+  if (is_new !== undefined) where.is_new = is_new === "true";
+
   const { count, rows } = await Product.findAndCountAll({
     where,
     limit: parseInt(limit),
     offset,
+    attributes: [
+      "product_id",
+      "name",
+      "price",
+      "image0",
+      "is_featured",
+      "is_new",
+    ], // Chỉ lấy image0
   });
 
   return {
@@ -87,7 +105,7 @@ const updateProduct = async (id, data, files) => {
   const productData = { ...data };
 
   images.forEach((img, index) => {
-    productData[`image${index + 1}`] = img.url;
+    productData[`image${index}`] = img.url; // Đổi thành image0 đến image5
   });
 
   await product.update(productData);

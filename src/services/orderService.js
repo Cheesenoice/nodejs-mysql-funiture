@@ -36,7 +36,8 @@ const createOrderFromCart = async (
 
   const orderId = `ORDER_${Date.now()}`;
   const order = await Order.create({
-    user_id: userId || null,
+    user_id: userId, // Lưu user_id nếu có
+    session_id: userId ? null : sessionId, // Chỉ lưu session_id nếu không có user_id
     full_name,
     email,
     phone,
@@ -69,7 +70,7 @@ const createOrderFromCart = async (
   await sendOrderConfirmation(email, order, itemsWithProduct);
 
   if (order.payment_method === "momo") {
-    const callbackUrl = process.env.CALLBACK_URL; // Sử dụng biến từ .env
+    const callbackUrl = process.env.CALLBACK_URL;
     const payUrl = await momoPayment(
       orderId,
       totalAmount.toString(),
@@ -94,6 +95,7 @@ const getOrders = async (userId) => {
     ],
     attributes: [
       "order_id",
+      "user_id",
       "full_name",
       "email",
       "phone",
@@ -115,6 +117,7 @@ const getOrderById = async (userId, orderId) => {
     where,
     attributes: [
       "order_id",
+      "user_id",
       "full_name",
       "email",
       "phone",
@@ -152,6 +155,7 @@ const getAllOrders = async () => {
     ],
     attributes: [
       "order_id",
+      "user_id",
       "full_name",
       "email",
       "phone",

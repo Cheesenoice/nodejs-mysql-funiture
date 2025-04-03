@@ -3,9 +3,11 @@ const Order = require("../models/Order");
 
 const createOrder = async (req, res) => {
   try {
+    const userId = req.user?.id || null; // Lấy từ JWT hoặc null
+    const sessionId = userId ? null : req.sessionID; // Chỉ dùng session nếu không có userId
     const result = await orderService.createOrderFromCart(
-      req.user?.id,
-      req.sessionID,
+      userId,
+      sessionId,
       req.body
     );
     if (result.payUrl) {
@@ -20,7 +22,8 @@ const createOrder = async (req, res) => {
 
 const getOrders = async (req, res) => {
   try {
-    const orders = await orderService.getOrders(req.user?.id);
+    const userId = req.user?.id || null;
+    const orders = await orderService.getOrders(userId);
     res.json({ success: true, data: orders });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -29,7 +32,8 @@ const getOrders = async (req, res) => {
 
 const getOrderById = async (req, res) => {
   try {
-    const order = await orderService.getOrderById(req.user?.id, req.params.id);
+    const userId = req.user?.id || null;
+    const order = await orderService.getOrderById(userId, req.params.id);
     res.json({ success: true, data: order });
   } catch (error) {
     res.status(404).json({ success: false, message: error.message });

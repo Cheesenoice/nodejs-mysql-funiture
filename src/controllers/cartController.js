@@ -2,8 +2,15 @@ const cartService = require("../services/cartService");
 
 const getCart = async (req, res) => {
   try {
-    const cart = await cartService.getCart(req.user?.id, req.sessionID);
-    res.json({ success: true, data: cart });
+    const userId = req.user?.id || null; // Từ JWT hoặc null
+    const sessionId = userId ? null : req.sessionID; // Chỉ dùng session nếu không có userId
+    const cart = await cartService.getCart(userId, sessionId);
+    const itemCount = await cartService.countCartItems(userId, sessionId);
+    res.json({
+      success: true,
+      data: cart || { cart_id: null, user_id: null, items: [] },
+      itemCount,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -11,9 +18,11 @@ const getCart = async (req, res) => {
 
 const addToCart = async (req, res) => {
   try {
+    const userId = req.user?.id || null;
+    const sessionId = userId ? null : req.sessionID;
     const cartItem = await cartService.addToCart(
-      req.user?.id,
-      req.sessionID,
+      userId,
+      sessionId,
       req.body.product_id,
       req.body.quantity
     );
@@ -25,9 +34,11 @@ const addToCart = async (req, res) => {
 
 const updateCartItem = async (req, res) => {
   try {
+    const userId = req.user?.id || null;
+    const sessionId = userId ? null : req.sessionID;
     const cartItem = await cartService.updateCartItem(
-      req.user?.id,
-      req.sessionID,
+      userId,
+      sessionId,
       req.params.item_id,
       req.body.quantity
     );
@@ -39,9 +50,11 @@ const updateCartItem = async (req, res) => {
 
 const removeFromCart = async (req, res) => {
   try {
+    const userId = req.user?.id || null;
+    const sessionId = userId ? null : req.sessionID;
     const message = await cartService.removeFromCart(
-      req.user?.id,
-      req.sessionID,
+      userId,
+      sessionId,
       req.params.item_id
     );
     res.json({ success: true, message });

@@ -1,29 +1,26 @@
 const express = require("express");
 const router = express.Router();
-const productController = require("../../controllers/admin/productController");
+const adminCategoryController = require("../../controllers/admin/adminCategoryController");
 const authMiddleware = require("../../middleware/auth");
 const adminMiddleware = require("../../middleware/admin");
-const { upload } = require("../../utils/upload");
 
 router.post(
   "/",
   authMiddleware,
   adminMiddleware,
-  upload.array("images", 6),
-  productController.createProduct
+  adminCategoryController.createCategory
 );
 router.patch(
   "/:id",
   authMiddleware,
   adminMiddleware,
-  upload.array("images", 6),
-  productController.updateProduct
+  adminCategoryController.updateCategory
 );
 router.delete(
   "/:id",
   authMiddleware,
   adminMiddleware,
-  productController.deleteProduct
+  adminCategoryController.deleteCategory
 );
 
 module.exports = router;

@@ -5,7 +5,7 @@ const Product = require("../models/Product");
 const getCart = async (userId, sessionId) => {
   const cart = await Cart.findOne({
     where: userId ? { user_id: userId } : { session_id: sessionId },
-    attributes: ["cart_id", "session_id", "created_at"],
+    attributes: ["cart_id", "user_id", "session_id", "created_at"],
     include: [
       {
         model: CartItem,
@@ -13,13 +13,13 @@ const getCart = async (userId, sessionId) => {
         include: [
           {
             model: Product,
-            attributes: ["product_id", "name", "price", "image1"],
+            attributes: ["product_id", "name", "price", "image0"],
           },
         ],
       },
     ],
   });
-  if (!cart) return { items: [], total_quantity: 0 };
+  if (!cart) return { user_id: userId || null, items: [], total_quantity: 0 };
 
   const totalQuantity = cart.CartItems.reduce(
     (sum, item) => sum + item.quantity,
@@ -27,6 +27,7 @@ const getCart = async (userId, sessionId) => {
   );
   return {
     cart_id: cart.cart_id,
+    user_id: cart.user_id,
     session_id: cart.session_id,
     created_at: cart.created_at,
     items: cart.CartItems,
@@ -43,9 +44,10 @@ const addToCart = async (userId, sessionId, productId, quantity) => {
     where: userId ? { user_id: userId } : { session_id: sessionId },
   });
   if (!cart) {
-    cart = await Cart.create(
-      userId ? { user_id: userId } : { session_id: sessionId }
-    );
+    cart = await Cart.create({
+      user_id: userId, // Lưu user_id nếu có
+      session_id: userId ? null : sessionId, // Chỉ lưu session_id nếu không có user_id
+    });
   }
 
   let cartItem = await CartItem.findOne({
@@ -64,7 +66,7 @@ const addToCart = async (userId, sessionId, productId, quantity) => {
       quantity,
     });
   }
-  return cartItem;
+  return { ...cartItem.toJSON(), user_id: cart.user_id }; // Trả về user_id từ cart
 };
 
 const updateCartItem = async (userId, sessionId, itemId, quantity) => {
@@ -84,7 +86,7 @@ const updateCartItem = async (userId, sessionId, itemId, quantity) => {
 
   cartItem.quantity = quantity;
   await cartItem.save();
-  return cartItem;
+  return { ...cartItem.toJSON(), user_id: cart.user_id };
 };
 
 const removeFromCart = async (userId, sessionId, itemId) => {
@@ -102,4 +104,19 @@ const removeFromCart = async (userId, sessionId, itemId) => {
   return "Item removed";
 };
 
-module.exports = { getCart, addToCart, updateCartItem, removeFromCart };
+const countCartItems = async (userId, sessionId) => {
+  const cart = await Cart.findOne({
+    where: userId ? { user_id: userId } : { session_id: sessionId },
+    include: [CartItem],
+  });
+  if (!cart || !cart.CartItems) return 0;
+  return cart.CartItems.reduce((sum, item) => sum + item.quantity, 0);
+};
+
+module.exports = {
+  getCart,
+  addToCart,
+  updateCartItem,
+  removeFromCart,
+  countCartItems,
+};
