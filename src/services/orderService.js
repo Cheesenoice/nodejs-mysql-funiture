@@ -34,20 +34,22 @@ const createOrderFromCart = async (
     });
   }
 
-  const orderId = `ORDER_${Date.now()}`;
+  const momoOrderId = `ORDER_${Date.now()}`; // momo_order_id riêng biệt
+  console.log("Creating order with momo_order_id:", momoOrderId);
   const order = await Order.create({
-    user_id: userId, // Lưu user_id nếu có
-    session_id: userId ? null : sessionId, // Chỉ lưu session_id nếu không có user_id
+    user_id: userId,
+    session_id: userId ? null : sessionId,
     full_name,
     email,
     phone,
     address,
     total_amount: totalAmount,
     payment_method: payment_method || "cod",
-    momo_order_id: payment_method === "momo" ? orderId : null,
+    momo_order_id: payment_method === "momo" ? momoOrderId : null,
   });
+  console.log("Order created:", order.toJSON());
 
-  const createdOrderItems = await OrderItem.bulkCreate(
+  await OrderItem.bulkCreate(
     orderItems.map((item) => ({
       order_id: order.order_id,
       ...item,
@@ -72,49 +74,22 @@ const createOrderFromCart = async (
   if (order.payment_method === "momo") {
     const callbackUrl = process.env.CALLBACK_URL;
     const payUrl = await momoPayment(
-      orderId,
+      momoOrderId,
       totalAmount.toString(),
       `${callbackUrl}/api/orders/callback`,
       `${callbackUrl}/api/orders/callback`
     );
+    console.log("MoMo payUrl:", payUrl);
     return { order, payUrl };
   }
 
   return { order };
 };
 
-const getOrders = async (userId) => {
-  const where = userId ? { user_id: userId } : {};
-  return await Order.findAll({
-    where,
-    include: [
-      {
-        model: OrderItem,
-        attributes: ["order_item_id", "product_id", "quantity", "price"],
-      },
-    ],
-    attributes: [
-      "order_id",
-      "user_id",
-      "full_name",
-      "email",
-      "phone",
-      "address",
-      "total_amount",
-      "status",
-      "payment_method",
-      "payment_status",
-      "created_at",
-    ],
-  });
-};
-
-const getOrderById = async (userId, orderId) => {
-  const where = userId
-    ? { order_id: orderId, user_id: userId }
-    : { order_id: orderId };
-  const order = await Order.findOne({
-    where,
+const getOrdersByUser = async (userId) => {
+  if (!userId) throw new Error("User ID is required");
+  const orders = await Order.findAll({
+    where: { user_id: userId },
     attributes: [
       "order_id",
       "user_id",
@@ -133,26 +108,17 @@ const getOrderById = async (userId, orderId) => {
         model: OrderItem,
         attributes: ["order_item_id", "product_id", "quantity", "price"],
         include: [
-          {
-            model: Product,
-            attributes: ["product_id", "name", "price"],
-          },
+          { model: Product, attributes: ["product_id", "name", "price"] },
         ],
       },
     ],
   });
-  if (!order) throw new Error("Order not found");
-  return order;
+  return orders;
 };
 
-const getAllOrders = async () => {
-  return await Order.findAll({
-    include: [
-      {
-        model: OrderItem,
-        attributes: ["order_item_id", "product_id", "quantity", "price"],
-      },
-    ],
+const getOrderById = async (orderId) => {
+  const order = await Order.findOne({
+    where: { order_id: orderId },
     attributes: [
       "order_id",
       "user_id",
@@ -166,7 +132,46 @@ const getAllOrders = async () => {
       "payment_status",
       "created_at",
     ],
+    include: [
+      {
+        model: OrderItem,
+        attributes: ["order_item_id", "product_id", "quantity", "price"],
+        include: [
+          { model: Product, attributes: ["product_id", "name", "price"] },
+        ],
+      },
+    ],
   });
+  if (!order) throw new Error("Order not found");
+  return order;
+};
+
+const getAllOrders = async () => {
+  const orders = await Order.findAll({
+    attributes: [
+      "order_id",
+      "user_id",
+      "full_name",
+      "email",
+      "phone",
+      "address",
+      "total_amount",
+      "status",
+      "payment_method",
+      "payment_status",
+      "created_at",
+    ],
+    include: [
+      {
+        model: OrderItem,
+        attributes: ["order_item_id", "product_id", "quantity", "price"],
+        include: [
+          { model: Product, attributes: ["product_id", "name", "price"] },
+        ],
+      },
+    ],
+  });
+  return orders;
 };
 
 const updateOrder = async (orderId, data) => {
@@ -186,7 +191,7 @@ const deleteOrder = async (orderId) => {
 
 module.exports = {
   createOrderFromCart,
-  getOrders,
+  getOrdersByUser,
   getOrderById,
   getAllOrders,
   updateOrder,
