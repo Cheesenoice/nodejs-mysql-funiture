@@ -16,6 +16,8 @@ const Order = sequelize.define(
     phone: { type: DataTypes.STRING(50), allowNull: false },
     address: { type: DataTypes.TEXT, allowNull: false },
     total_amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
+    discount_amount: { type: DataTypes.DECIMAL(10, 2), defaultValue: 0 },
+    final_amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
     status: {
       type: DataTypes.ENUM(
         "pending",
@@ -35,7 +37,17 @@ const Order = sequelize.define(
       type: DataTypes.ENUM("pending", "paid", "failed"),
       defaultValue: "pending",
     },
-    momo_order_id: { type: DataTypes.STRING(50), unique: true }, // Thêm cột mới
+    momo_order_id: {
+      type: DataTypes.STRING(50),
+      unique: true,
+      allowNull: true,
+    },
+    created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+    updated_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
+      onUpdate: DataTypes.NOW,
+    },
   },
   {
     tableName: "Orders",

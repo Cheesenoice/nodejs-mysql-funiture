@@ -4,12 +4,16 @@ const Cart = require("../models/Cart");
 const CartItem = require("../models/CartItem");
 const Product = require("../models/Product");
 const { momoPayment } = require("./paymentService");
-const { sendOrderConfirmation } = require("./emailService");
+const { applyVoucher, recordVoucherUsage } = require("./voucherService");
+const {
+  sendOrderConfirmation,
+  sendOrderCancellationEmail,
+} = require("./emailService");
 
 const createOrderFromCart = async (
   userId,
   sessionId,
-  { full_name, email, phone, address, payment_method }
+  { full_name, email, phone, address, payment_method, voucher_code }
 ) => {
   const cart = await Cart.findOne({
     where: userId ? { user_id: userId } : { session_id: sessionId },
@@ -21,11 +25,8 @@ const createOrderFromCart = async (
   const orderItems = [];
   for (const item of cart.CartItems) {
     const product = await Product.findByPk(item.product_id);
-    if (!product || product.stock < item.quantity) {
-      throw new Error(
-        `Insufficient stock for product ${product?.name || item.product_id}`
-      );
-    }
+    if (!product || product.stock < item.quantity)
+      throw new Error("Insufficient stock");
     totalAmount += product.price * item.quantity;
     orderItems.push({
       product_id: item.product_id,
@@ -34,8 +35,21 @@ const createOrderFromCart = async (
     });
   }
 
-  const momoOrderId = `ORDER_${Date.now()}`; // momo_order_id riêng biệt
-  console.log("Creating order with momo_order_id:", momoOrderId);
+  // Áp dụng voucher nếu có
+  let discountAmount = 0;
+  let voucher = null;
+  if (voucher_code) {
+    const { voucher: appliedVoucher, discountApplied } = await applyVoucher(
+      voucher_code,
+      orderItems,
+      totalAmount
+    );
+    voucher = appliedVoucher;
+    discountAmount = discountApplied; // Lưu số tiền giảm riêng
+  }
+
+  const finalAmount = totalAmount - discountAmount; // Tính final_amount
+  const momoOrderId = `ORDER_${Date.now()}`;
   const order = await Order.create({
     user_id: userId,
     session_id: userId ? null : sessionId,
@@ -43,23 +57,28 @@ const createOrderFromCart = async (
     email,
     phone,
     address,
-    total_amount: totalAmount,
+    total_amount: totalAmount, // Tổng tiền trước giảm
+    discount_amount: discountAmount, // Số tiền giảm
+    final_amount: finalAmount, // Tổng tiền sau giảm
     payment_method: payment_method || "cod",
     momo_order_id: payment_method === "momo" ? momoOrderId : null,
   });
-  console.log("Order created:", order.toJSON());
 
   await OrderItem.bulkCreate(
-    orderItems.map((item) => ({
-      order_id: order.order_id,
-      ...item,
-    }))
+    orderItems.map((item) => ({ order_id: order.order_id, ...item }))
   );
-
   for (const item of orderItems) {
     const product = await Product.findByPk(item.product_id);
     product.stock -= item.quantity;
     await product.save();
+  }
+
+  if (voucher) {
+    await recordVoucherUsage(
+      order.order_id,
+      voucher.voucher_id,
+      discountAmount
+    );
   }
 
   await CartItem.destroy({ where: { cart_id: cart.cart_id } });
@@ -75,11 +94,10 @@ const createOrderFromCart = async (
     const callbackUrl = process.env.CALLBACK_URL;
     const payUrl = await momoPayment(
       momoOrderId,
-      totalAmount.toString(),
+      finalAmount.toString(), // Dùng final_amount cho MoMo
       `${callbackUrl}/api/orders/callback`,
       `${callbackUrl}/api/orders/callback`
     );
-    console.log("MoMo payUrl:", payUrl);
     return { order, payUrl };
   }
 
@@ -189,6 +207,37 @@ const deleteOrder = async (orderId) => {
   return "Order deleted";
 };
 
+const cancelOrder = async (userId, orderId) => {
+  const order = await Order.findOne({
+    where: { order_id: orderId, user_id: userId },
+    include: [
+      {
+        model: OrderItem,
+        attributes: ["product_id", "quantity"],
+      },
+    ],
+  });
+
+  if (!order) throw new Error("Order not found");
+  if (order.status === "canceled") throw new Error("Already cancelled");
+  if (order.status !== "pending") throw new Error("Cannot cancel");
+
+  // Hoàn lại stock
+  for (const item of order.OrderItems) {
+    const product = await Product.findByPk(item.product_id);
+    product.stock += item.quantity;
+    await product.save();
+  }
+
+  // Cập nhật status
+  await order.update({ status: "canceled" });
+
+  // Gửi email thông báo
+  await sendOrderCancellationEmail(order.email, order);
+
+  return order;
+};
+
 module.exports = {
   createOrderFromCart,
   getOrdersByUser,
@@ -196,4 +245,5 @@ module.exports = {
   getAllOrders,
   updateOrder,
   deleteOrder,
+  cancelOrder,
 };

@@ -5,16 +5,21 @@ const createOrder = async (req, res) => {
   try {
     const userId = req.user?.id || null;
     const sessionId = userId ? null : req.sessionID;
-    const result = await orderService.createOrderFromCart(
-      userId,
-      sessionId,
-      req.body
+    const { full_name, email, phone, address, payment_method, voucher_code } =
+      req.body; // Đảm bảo lấy voucher_code
+    const result = await orderService.createOrderFromCart(userId, sessionId, {
+      full_name,
+      email,
+      phone,
+      address,
+      payment_method,
+      voucher_code, // Truyền voucher_code
+    });
+    res.json(
+      result.payUrl
+        ? { success: true, order: result.order, payUrl: result.payUrl }
+        : { success: true, order: result.order }
     );
-    if (result.payUrl) {
-      res.json({ success: true, data: result.order, payUrl: result.payUrl });
-    } else {
-      res.status(201).json({ success: true, data: result.order });
-    }
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -68,4 +73,24 @@ const momoCallback = async (req, res) => {
   }
 };
 
-module.exports = { createOrder, momoCallback, getOrdersByUser, getOrderById };
+const cancelOrder = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+    const { id } = req.params;
+    await orderService.cancelOrder(userId, id);
+    res.json({ success: true, message: "Order cancelled" }); // Ngắn gọn
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+module.exports = {
+  createOrder,
+  momoCallback,
+  getOrdersByUser,
+  getOrderById,
+  cancelOrder,
+};

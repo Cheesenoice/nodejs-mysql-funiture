@@ -27,7 +27,9 @@ const sendOrderConfirmation = async (to, order, orderItems) => {
       **Thông tin đơn hàng:**
       ${itemsList}
 
-      Tổng cộng: ${order.total_amount} VND
+      Tổng tiền hàng: ${order.total_amount}\nGiảm giá: ${
+      order.discount_amount
+    }\nThành tiền: ${order.final_amount} VND
       Phương thức thanh toán: ${
         order.payment_method === "cod"
           ? "Thanh toán khi nhận hàng"
@@ -48,4 +50,14 @@ const sendOrderConfirmation = async (to, order, orderItems) => {
   await transporter.sendMail(mailOptions);
 };
 
-module.exports = { sendOrderConfirmation };
+const sendOrderCancellationEmail = async (to, order) => {
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to,
+    subject: "Order Cancellation",
+    text: `Your order #${order.order_id} has been canceled.\nMoney will be refunded manually after 7 days.\nIf this was a mistake, please contact support.`,
+  };
+  await transporter.sendMail(mailOptions);
+};
+
+module.exports = { sendOrderConfirmation, sendOrderCancellationEmail };
